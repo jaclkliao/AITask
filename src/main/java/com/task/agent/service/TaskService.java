@@ -27,7 +27,7 @@ public interface TaskService {
 
     List<SubTask> listSubTasks(Integer taskId, Integer userId);
 
-    List<SubTask> redecompose(Integer taskId, Integer userId);
+    List<SubTask> redecompose(Integer taskId, Integer userId, TaskUpdateDTO dto);
 
     TimeLog startTimer(Integer taskId, Integer userId);
 

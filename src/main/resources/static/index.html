@@ -1086,7 +1086,7 @@ input[type="color"].input{padding:4px;height:36px;width:48px;cursor:pointer}
     <!-- Task Heatmap -->
     <div class="card heatmap-card">
       <div class="card-title">
-        <h2>任务完成点阵</h2>
+        <h2>任务完成情况</h2>
         <select class="input heatmap-select hide" id="heatmapUserSelect" onchange="loadTaskHeatmap()"></select>
       </div>
       <div class="heatmap-toolbar">
@@ -1832,7 +1832,13 @@ async function loadSubTasks(taskId){
     document.getElementById('sub-'+taskId).innerHTML=r.data.map(st=>`<div class="sub-task-item">${esc(st.content)}</div>`).join('');}
 }
 async function redecompose(taskId){
-  const r=await api('/task/'+taskId+'/decompose',{method:'POST'});
+  const task=cachedTasks.find(t=>t.id===taskId)||{};
+  const body={
+    title:task.title,
+    description:task.description,
+    costTime:task.costTime
+  };
+  const r=await api('/task/'+taskId+'/decompose',{method:'POST',body:JSON.stringify(body)});
   if(r.code===200){showToast('AI 重拆分完成','success');loadTasks()}else showToast(r.msg||'拆分失败','error');
 }
 

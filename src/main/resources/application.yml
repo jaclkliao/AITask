@@ -10,7 +10,6 @@ spring:
   sql:
     init:
       schema-locations: classpath:db/schema.sql
-      data-locations: classpath:db/data.sql
       mode: always
       continue-on-error: true
   servlet:
@@ -34,5 +33,5 @@ llm:
 
 # JWT 配置
 jwt:
-  secret: ${JWT_SECRET:change-me-in-production}
+  secret: ${JWT_SECRET:a7f3e9d2c4b8a1f6e5d0c9b2a3f4e5d6c7b8a9f0e1d2c3b4a5f6e7d8c9b0a1f2}
   expiration: ${JWT_EXPIRATION:86400000}

@@ -181,14 +181,24 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public List<SubTask> redecompose(Integer taskId, Integer userId) {
+    public List<SubTask> redecompose(Integer taskId, Integer userId, TaskUpdateDTO dto) {
         Task task = taskMapper.selectOne(
                 new LambdaQueryWrapper<Task>().eq(Task::getId, taskId).eq(Task::getUserId, userId));
         if (task == null) throw new RuntimeException("任务不存在");
-        subTaskMapper.delete(new LambdaQueryWrapper<SubTask>().eq(SubTask::getTaskId, taskId));
 
-        String content = task.getTitle() + " " + (task.getDescription() != null ? task.getDescription() : "");
+        String title = dto != null && StrUtil.isNotBlank(dto.getTitle()) ? dto.getTitle() : task.getTitle();
+        String description = dto != null && StrUtil.isNotBlank(dto.getDescription()) ? dto.getDescription() : task.getDescription();
+        Integer costTime = dto != null && dto.getCostTime() != null ? dto.getCostTime() : task.getCostTime();
+        String content = buildDecomposeContent(title, description, costTime);
+        if (StrUtil.isBlank(content)) {
+            throw new RuntimeException("任务内容为空，无法进行 AI 重拆分");
+        }
         List<String> subs = taskDecomposePlanner.decompose(userId, content);
+        if (subs.isEmpty()) {
+            throw new RuntimeException("AI 未生成有效子任务，请检查模型配置或补充任务描述后重试");
+        }
+
+        subTaskMapper.delete(new LambdaQueryWrapper<SubTask>().eq(SubTask::getTaskId, taskId));
         for (int i = 0; i < subs.size(); i++) {
             SubTask st = new SubTask();
             st.setTaskId(taskId);
@@ -199,6 +209,34 @@ public class TaskServiceImpl implements TaskService {
             subTaskMapper.insert(st);
         }
         return listSubTasks(taskId, userId);
+    }
+
+    private String buildDecomposeContent(String title, String description, Integer costTime) {
+        StringBuilder content = new StringBuilder();
+        if (StrUtil.isNotBlank(title)) {
+            content.append("任务标题：").append(title.trim());
+        }
+        String plainDescription = stripHtml(description);
+        if (StrUtil.isNotBlank(plainDescription)) {
+            if (!content.isEmpty()) content.append("\n");
+            content.append("任务描述：").append(plainDescription);
+        }
+        if (costTime != null && costTime > 0) {
+            if (!content.isEmpty()) content.append("\n");
+            content.append("预估耗时：").append(costTime).append("分钟");
+        }
+        return content.toString();
+    }
+
+    private String stripHtml(String html) {
+        if (StrUtil.isBlank(html)) return "";
+        return html.replaceAll("<[^>]+>", " ")
+                .replace("&nbsp;", " ")
+                .replace("&amp;", "&")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     @Override

@@ -84,8 +84,9 @@ public class TaskController {
 
     @PostMapping("/{id}/decompose")
     public Result<List<SubTask>> redecompose(@AuthUser Integer userId,
-                                              @PathVariable Integer id) {
-        return Result.success(taskService.redecompose(id, userId));
+                                              @PathVariable Integer id,
+                                              @RequestBody(required = false) TaskUpdateDTO dto) {
+        return Result.success(taskService.redecompose(id, userId, dto));
     }
 
     @PostMapping("/{id}/time/start")

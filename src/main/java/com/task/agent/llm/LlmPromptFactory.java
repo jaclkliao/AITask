@@ -16,8 +16,8 @@ public class LlmPromptFactory {
             "用户任务：%s";
 
     /** 任务拆解模板 */
-    private static final String TASK_DECOMPOSE_TEMPLATE = "你是任务拆解专家，请将复杂任务拆分为多个可直接执行的子任务，返回JSON数组，仅返回数组，不要多余解释：\n" +
-            "[{content:\"子任务内容\"}]\n" +
+    private static final String TASK_DECOMPOSE_TEMPLATE = "你是任务拆解专家，请将任务拆分为3到8个可直接执行的子任务，必须返回标准JSON数组，仅返回数组，不要多余解释：\n" +
+            "[{\"content\":\"子任务内容\"}]\n" +
             "任务内容：%s";
 
     public String getTaskParsePrompt(String content) {

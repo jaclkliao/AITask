@@ -37,7 +37,11 @@ public class TaskDecomposePlanner {
         res = cleanJsonContent(res);
         try {
             List<SubTaskDTO> subTaskList = JSON.parseArray(res, SubTaskDTO.class);
-            return subTaskList.stream().map(SubTaskDTO::getContent).toList();
+            return subTaskList.stream()
+                    .map(SubTaskDTO::getContent)
+                    .filter(StrUtil::isNotBlank)
+                    .map(String::trim)
+                    .toList();
         } catch (Exception e) {
             return Collections.emptyList();
         }
