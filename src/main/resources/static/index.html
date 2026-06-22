@@ -1783,11 +1783,6 @@ async function loadTasks(){
   }
   const tasks=r.data||[];
   cachedTasks=tasks;
-  if(!currentProject&&!sf){
-    const todo=document.querySelector('.sidebar-item[data-nav="TODO"]');
-    // 简单计数 - 后端已支持列表查询，这里只对"全部"做计数
-    document.getElementById('allCount').textContent=tasks.length;
-  }
   if(!tasks.length){
     el.innerHTML='<div class="text-center" style="padding:48px 20px;color:var(--text-tertiary)"><div style="font-size:40px;margin-bottom:8px;opacity:0.5;animation:taskEnter 0.6s var(--ease-spring) both">📭</div><div style="font-size:13px">暂无任务</div><div style="font-size:11px;margin-top:4px;opacity:0.7">试着创建一个吧</div></div>';
     return;
