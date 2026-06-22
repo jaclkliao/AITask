@@ -1,0 +1,15 @@
+target/
+logs/
+*.log
+
+.idea/
+.vscode/
+*.iml
+
+.agents/
+.claude/
+.codex/
+.git.broken/
+
+.DS_Store
+Thumbs.db
