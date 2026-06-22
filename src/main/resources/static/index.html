@@ -166,6 +166,7 @@ body{
   position:relative;
 }
 .sidebar-item:hover{background:var(--bg-hover)}
+.sidebar-item.active{background:var(--accent-soft);color:var(--accent);font-weight:500}
 .sidebar-item:active{transform:scale(0.98);background:var(--bg-active)}
 .sidebar-item .icon{width:18px;text-align:center;opacity:0.85;font-size:14px}
 .sidebar-item .badge{
@@ -1623,6 +1624,7 @@ function filterProject(id){
 }
 function setStatusFilter(s){
   document.getElementById('statusFilter').value=s;
+  syncSidebarActive();
   loadTasks();
 }
 function showAddProject(){document.getElementById('addProjectForm').classList.remove('hide')}
@@ -1645,6 +1647,13 @@ function updateSidebarCount(id,count){
   const el=document.getElementById(id);
   if(el) el.textContent=count;
 }
+function syncSidebarActive(){
+  const currentStatus=document.getElementById('statusFilter')?.value||'';
+  document.querySelectorAll('.sidebar-item[data-nav]').forEach(item=>{
+    const nav=item.dataset.nav;
+    item.classList.toggle('active', (nav==='all'&&!currentStatus&&currentProject===null) || nav===currentStatus);
+  });
+}
 async function loadSidebarStats(){
   const r=await api('/task/list',{method:'POST',body:JSON.stringify({
     projectId:currentProject||null,
@@ -1656,6 +1665,7 @@ async function loadSidebarStats(){
   updateSidebarCount('todoCount',tasks.filter(t=>t.status==='TODO').length);
   updateSidebarCount('doingCount',tasks.filter(t=>t.status==='DOING').length);
   updateSidebarCount('doneCount',tasks.filter(t=>t.status==='DONE').length);
+  syncSidebarActive();
 }
 async function submitTask(){
   const input=document.getElementById('taskInput'), content=input.value.trim();
