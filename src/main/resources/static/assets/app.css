@@ -1420,9 +1420,10 @@ input[type="color"].input{padding:4px;height:36px;width:48px;cursor:pointer}
 }
 
 /* ====== 富文本编辑器主题 ====== */
-#editor,#editEditor{height:200px;margin-bottom:8px;background:var(--bg-elevated);border-radius:var(--radius-md)}
+#editor,#editEditor{height:200px;margin-bottom:8px;background:var(--bg-elevated);border-radius:var(--radius-md);position:relative}
 .ql-toolbar.ql-snow{border:1px solid var(--divider) !important;border-top-left-radius:var(--radius-md);border-top-right-radius:var(--radius-md);background:var(--bg-secondary)}
 .ql-container.ql-snow{border:1px solid var(--divider) !important;border-top:none !important;border-bottom-left-radius:var(--radius-md);border-bottom-right-radius:var(--radius-md);font-family:var(--font);font-size:13.5px}
+.ql-container{position:relative}
 .ql-editor{letter-spacing:-0.005em;color:var(--text-primary)}
 .ql-editor.ql-blank::before{color:var(--text-tertiary);font-style:normal}
 .ql-snow .ql-stroke{stroke:var(--text-secondary)}
@@ -1463,12 +1464,16 @@ input[type="color"].input{padding:4px;height:36px;width:48px;cursor:pointer}
 .image-resize-overlay{
   position:absolute;border:1px dashed var(--accent);pointer-events:none;
   z-index:10;
+  box-shadow:0 0 0 1px rgba(255,255,255,0.7);
 }
 .image-resize-handle{
   position:absolute;width:8px;height:8px;background:#fff;border:1px solid var(--accent);border-radius:50%;
   pointer-events:auto;cursor:se-resize;
 }
-.image-resize-handle.se{right:-4px;bottom:-4px}
+.image-resize-handle.nw{left:0;top:0;cursor:nwse-resize}
+.image-resize-handle.ne{right:0;top:0;cursor:nesw-resize}
+.image-resize-handle.sw{left:0;bottom:0;cursor:nesw-resize}
+.image-resize-handle.se{right:0;bottom:0}
 
 /* 只读区域图片点击预览 */
 .task-desc img,.comment-body img,.ql-editor img{

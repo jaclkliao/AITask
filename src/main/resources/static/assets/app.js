@@ -422,6 +422,7 @@ class ImageResize{
     this.quill=quill;this.options={...options};
     this.overlay=null;this.activeImage=null;
     this.quill.root.addEventListener('click',this.onClick.bind(this));
+    this.quill.root.addEventListener('scroll',()=>{if(this.activeImage && this.overlay)this.positionOverlay();});
     document.addEventListener('click',this.onDocClick.bind(this));
     window.addEventListener('resize',()=>{if(this.activeImage && this.overlay)this.positionOverlay();});
   }
@@ -439,8 +440,8 @@ class ImageResize{
   show(img){
     this.activeImage=img;
     if(!this.overlay) this.createOverlay();
-    this.positionOverlay();
     this.overlay.style.display='block';
+    this.positionOverlay();
   }
   hide(){
     this.activeImage=null;
@@ -458,10 +459,21 @@ class ImageResize{
     if(!this.activeImage) return;
     const rect=this.activeImage.getBoundingClientRect();
     const rootRect=this.quill.root.getBoundingClientRect();
-    this.overlay.style.width=rect.width+'px';
-    this.overlay.style.height=rect.height+'px';
-    this.overlay.style.left=(rect.left-rootRect.left+this.quill.root.scrollLeft)+'px';
-    this.overlay.style.top=(rect.top-rootRect.top+this.quill.root.scrollTop)+'px';
+    const left=Math.max(rect.left,rootRect.left);
+    const top=Math.max(rect.top,rootRect.top);
+    const right=Math.min(rect.right,rootRect.right);
+    const bottom=Math.min(rect.bottom,rootRect.bottom);
+    const width=Math.max(0,right-left);
+    const height=Math.max(0,bottom-top);
+    if(width<=0||height<=0){
+      this.overlay.style.display='none';
+      return;
+    }
+    this.overlay.style.display='block';
+    this.overlay.style.width=width+'px';
+    this.overlay.style.height=height+'px';
+    this.overlay.style.left=(left-rootRect.left+this.quill.root.scrollLeft)+'px';
+    this.overlay.style.top=(top-rootRect.top+this.quill.root.scrollTop)+'px';
   }
   onHandleDown(handle,e){
     e.preventDefault();e.stopPropagation();
@@ -469,12 +481,13 @@ class ImageResize{
     const startX=e.clientX,startY=e.clientY;
     const startW=img.clientWidth,startH=img.clientHeight;
     const ratio=startH/startW;
+    const maxW=Math.max(50,this.quill.root.clientWidth-24);
     const xDir=handle.classList.contains('ne')||handle.classList.contains('se')?1:-1;
     const yDir=handle.classList.contains('sw')||handle.classList.contains('se')?1:-1;
     const onMove=ev=>{
       const dx=(ev.clientX-startX)*xDir;
       const dy=(ev.clientY-startY)*yDir;
-      const newW=Math.max(50,Math.round(startW+dx));
+      const newW=Math.min(maxW,Math.max(50,Math.round(startW+dx)));
       const newH=Math.max(50,Math.round(startH+dy));
       // 保持比例：以宽度为主
       const finalW=newW;
