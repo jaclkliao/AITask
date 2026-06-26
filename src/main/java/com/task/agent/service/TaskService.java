@@ -1,9 +1,11 @@
 package com.task.agent.service;
 
 import com.task.agent.dto.NaturalTaskDTO;
+import com.task.agent.dto.request.CommentCreateDTO;
 import com.task.agent.dto.request.TaskUpdateDTO;
 import com.task.agent.entity.SubTask;
 import com.task.agent.entity.Task;
+import com.task.agent.entity.TaskComment;
 import com.task.agent.entity.TimeLog;
 
 import java.util.List;
@@ -38,4 +40,16 @@ public interface TaskService {
     List<TimeLog> getTimeLogs(Integer taskId, Integer userId);
 
     Map<String, Object> getTaskHeatmap(Integer userId, Integer targetUserId);
+
+    List<TaskComment> listComments(Integer taskId, Integer userId);
+
+    TaskComment addComment(Integer taskId, Integer userId, CommentCreateDTO dto);
+
+    TaskComment updateComment(Integer taskId, Integer commentId, Integer userId, CommentCreateDTO dto);
+
+    void deleteComment(Integer taskId, Integer commentId, Integer userId);
+
+    Map<String, Object> getNotifications(Integer userId);
+
+    void markNotificationsRead(Integer userId, List<Integer> ids);
 }

@@ -30,6 +30,8 @@ public class DbMigrationRunner implements CommandLineRunner {
         try (Connection conn = dataSource.getConnection()) {
             migrateColumn(conn, "task", "description", "mediumtext");
             migrateColumn(conn, "project", "description", "mediumtext");
+            ensureTaskCommentTable(conn);
+            ensureNotificationTable(conn);
             ensureLlmConfigColumn(conn, "llm_config");
         } catch (Exception e) {
             log.warn("[DB迁移] 执行异常（不影响启动）: {}", e.getMessage());
@@ -78,6 +80,45 @@ public class DbMigrationRunner implements CommandLineRunner {
             tables.close();
         } catch (Exception e) {
             // 表不存在就算了
+        }
+    }
+
+    private void ensureTaskCommentTable(Connection conn) {
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS task_comment (
+                    id INT PRIMARY KEY AUTO_INCREMENT,
+                    task_id INT NOT NULL,
+                    user_id INT NOT NULL,
+                    content MEDIUMTEXT NOT NULL,
+                    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """);
+            log.debug("[DB迁移] task_comment 表已就绪");
+        } catch (Exception e) {
+            log.warn("[DB迁移] task_comment 建表失败: {}", e.getMessage());
+        }
+    }
+
+    private void ensureNotificationTable(Connection conn) {
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS notification (
+                    id INT PRIMARY KEY AUTO_INCREMENT,
+                    user_id INT NOT NULL,
+                    task_id INT,
+                    comment_id INT,
+                    from_user_id INT,
+                    type VARCHAR(30) NOT NULL,
+                    content VARCHAR(500),
+                    read_status INT DEFAULT 0,
+                    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """);
+            log.debug("[DB迁移] notification 表已就绪");
+        } catch (Exception e) {
+            log.warn("[DB迁移] notification 建表失败: {}", e.getMessage());
         }
     }
 }

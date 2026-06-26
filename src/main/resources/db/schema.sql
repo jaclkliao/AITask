@@ -84,6 +84,29 @@ CREATE TABLE IF NOT EXISTS time_log (
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 任务评论表
+CREATE TABLE IF NOT EXISTS task_comment (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    task_id INT NOT NULL,
+    user_id INT NOT NULL,
+    content MEDIUMTEXT NOT NULL,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 通知表（用于评论 @ 用户）
+CREATE TABLE IF NOT EXISTS notification (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    task_id INT,
+    comment_id INT,
+    from_user_id INT,
+    type VARCHAR(30) NOT NULL,
+    content VARCHAR(500),
+    read_status INT DEFAULT 0 COMMENT '0未读 1已读',
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 文件存储表（图片等二进制数据）
 CREATE TABLE IF NOT EXISTS `file` (
     id INT PRIMARY KEY AUTO_INCREMENT,

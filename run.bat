@@ -9,5 +9,5 @@ java -version
 echo.
 echo ===== Starting project =====
 echo.
-mvn spring-boot:run -e
+mvn spring-boot:run -e -Dspring-boot.run.jvmArguments="-Dserver.address=0.0.0.0"
 pause

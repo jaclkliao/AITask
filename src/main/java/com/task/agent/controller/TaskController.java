@@ -2,9 +2,11 @@ package com.task.agent.controller;
 
 import com.task.agent.common.result.Result;
 import com.task.agent.dto.NaturalTaskDTO;
+import com.task.agent.dto.request.CommentCreateDTO;
 import com.task.agent.dto.request.TaskUpdateDTO;
 import com.task.agent.entity.SubTask;
 import com.task.agent.entity.Task;
+import com.task.agent.entity.TaskComment;
 import com.task.agent.entity.TimeLog;
 import com.task.agent.security.AuthUserArgumentResolver.AuthUser;
 import com.task.agent.service.TaskService;
@@ -119,6 +121,46 @@ public class TaskController {
                                                        @RequestBody(required = false) IdBody body) {
         Integer targetUserId = body == null ? null : body.getUserId();
         return Result.success(taskService.getTaskHeatmap(userId, targetUserId));
+    }
+
+    @PostMapping("/{id}/comments")
+    public Result<List<TaskComment>> listComments(@AuthUser Integer userId,
+                                                   @PathVariable Integer id) {
+        return Result.success(taskService.listComments(id, userId));
+    }
+
+    @PostMapping("/{id}/comments/add")
+    public Result<TaskComment> addComment(@AuthUser Integer userId,
+                                           @PathVariable Integer id,
+                                           @RequestBody CommentCreateDTO dto) {
+        return Result.success(taskService.addComment(id, userId, dto));
+    }
+
+    @PutMapping("/{taskId}/comments/{commentId}")
+    public Result<TaskComment> updateComment(@AuthUser Integer userId,
+                                              @PathVariable Integer taskId,
+                                              @PathVariable Integer commentId,
+                                              @RequestBody CommentCreateDTO dto) {
+        return Result.success(taskService.updateComment(taskId, commentId, userId, dto));
+    }
+
+    @DeleteMapping("/{taskId}/comments/{commentId}")
+    public Result<Void> deleteComment(@AuthUser Integer userId,
+                                       @PathVariable Integer taskId,
+                                       @PathVariable Integer commentId) {
+        taskService.deleteComment(taskId, commentId, userId);
+        return Result.success(null);
+    }
+
+    @PostMapping("/notifications")
+    public Result<Map<String, Object>> notifications(@AuthUser Integer userId) {
+        return Result.success(taskService.getNotifications(userId));
+    }
+
+    @PostMapping("/notifications/read")
+    public Result<Void> markNotificationsRead(@AuthUser Integer userId, @RequestBody(required = false) List<Integer> ids) {
+        taskService.markNotificationsRead(userId, ids);
+        return Result.success(null);
     }
 
     // ===== 请求体 =====

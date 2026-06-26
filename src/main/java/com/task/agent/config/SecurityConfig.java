@@ -35,7 +35,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 // 公开接口：登录、注册、文件下载、静态资源
-                .requestMatchers("/api/auth/login","/api/auth/register").permitAll()
+                .requestMatchers("/api/auth/login","/api/auth/register","/api/auth/captcha").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/file/*").permitAll()
                 .requestMatchers("/", "/index.html", "/favicon.ico", "/static/**", "/*.html", "/*.css", "/*.js").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()

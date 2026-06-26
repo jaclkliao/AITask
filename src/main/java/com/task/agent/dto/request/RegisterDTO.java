@@ -12,5 +12,7 @@ public class RegisterDTO {
     @NotBlank(message = "密码不能为空")
     @Size(min = 6, max = 100, message = "密码长度6-100位")
     private String password;
+    @NotBlank(message = "确认密码不能为空")
+    private String confirmPassword;
     private String nickname;
 }

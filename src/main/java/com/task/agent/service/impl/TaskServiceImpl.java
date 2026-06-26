@@ -5,12 +5,17 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.task.agent.agent.parser.NaturalTaskParser;
 import com.task.agent.agent.planner.TaskDecomposePlanner;
 import com.task.agent.dto.NaturalTaskDTO;
+import com.task.agent.dto.request.CommentCreateDTO;
 import com.task.agent.dto.request.TaskUpdateDTO;
+import com.task.agent.entity.Notification;
 import com.task.agent.entity.SubTask;
 import com.task.agent.entity.Task;
+import com.task.agent.entity.TaskComment;
 import com.task.agent.entity.TimeLog;
 import com.task.agent.entity.User;
+import com.task.agent.mapper.NotificationMapper;
 import com.task.agent.mapper.SubTaskMapper;
+import com.task.agent.mapper.TaskCommentMapper;
 import com.task.agent.mapper.TaskMapper;
 import com.task.agent.mapper.TimeLogMapper;
 import com.task.agent.mapper.UserMapper;
@@ -28,6 +33,10 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +45,8 @@ public class TaskServiceImpl implements TaskService {
     private final TaskMapper taskMapper;
     private final SubTaskMapper subTaskMapper;
     private final TimeLogMapper timeLogMapper;
+    private final TaskCommentMapper taskCommentMapper;
+    private final NotificationMapper notificationMapper;
     private final UserMapper userMapper;
     private final NaturalTaskParser taskParser;
     private final TaskDecomposePlanner taskDecomposePlanner;
@@ -101,8 +112,12 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public Task getById(Integer id, Integer userId) {
-        return taskMapper.selectOne(
-                new LambdaQueryWrapper<Task>().eq(Task::getId, id).eq(Task::getUserId, userId));
+        Task task = taskMapper.selectById(id);
+        if (task == null) return null;
+        if (task.getUserId().equals(userId) || hasTaskNotification(id, userId)) {
+            return task;
+        }
+        return null;
     }
 
     @Override
@@ -167,6 +182,8 @@ public class TaskServiceImpl implements TaskService {
         subTaskMapper.delete(new LambdaQueryWrapper<SubTask>().eq(SubTask::getTaskId, id));
         remindService.deleteByTaskId(userId, id);
         timeLogMapper.delete(new LambdaQueryWrapper<TimeLog>().eq(TimeLog::getTaskId, id));
+        taskCommentMapper.delete(new LambdaQueryWrapper<TaskComment>().eq(TaskComment::getTaskId, id));
+        notificationMapper.delete(new LambdaQueryWrapper<Notification>().eq(Notification::getTaskId, id));
         taskMapper.delete(new LambdaQueryWrapper<Task>().eq(Task::getId, id).eq(Task::getUserId, userId));
     }
 
@@ -321,6 +338,187 @@ public class TaskServiceImpl implements TaskService {
             }).toList());
         }
         return result;
+    }
+
+    @Override
+    public List<TaskComment> listComments(Integer taskId, Integer userId) {
+        ensureTaskReadable(taskId, userId);
+        List<TaskComment> comments = taskCommentMapper.selectList(
+                new LambdaQueryWrapper<TaskComment>()
+                        .eq(TaskComment::getTaskId, taskId)
+                        .orderByAsc(TaskComment::getCreateTime));
+        fillCommentUsers(comments);
+        return comments;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public TaskComment addComment(Integer taskId, Integer userId, CommentCreateDTO dto) {
+        Task task = ensureTaskReadable(taskId, userId);
+        if (dto == null || StrUtil.isBlank(dto.getContent()) || "<p><br></p>".equals(dto.getContent().trim())) {
+            throw new RuntimeException("评论内容不能为空");
+        }
+        TaskComment comment = new TaskComment();
+        comment.setTaskId(taskId);
+        comment.setUserId(userId);
+        comment.setContent(dto.getContent());
+        taskCommentMapper.insert(comment);
+        task.setUpdateTime(LocalDateTime.now());
+        taskMapper.updateById(task);
+        createMentionNotifications(task, comment, userId);
+        fillCommentUsers(List.of(comment));
+        return comment;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteComment(Integer taskId, Integer commentId, Integer userId) {
+        ensureTaskReadable(taskId, userId);
+        TaskComment comment = taskCommentMapper.selectOne(
+                new LambdaQueryWrapper<TaskComment>()
+                        .eq(TaskComment::getId, commentId)
+                        .eq(TaskComment::getTaskId, taskId));
+        if (comment == null) return;
+        if (!comment.getUserId().equals(userId)) {
+            throw new RuntimeException("只能删除自己的评论");
+        }
+        taskCommentMapper.deleteById(commentId);
+        notificationMapper.delete(new LambdaQueryWrapper<Notification>().eq(Notification::getCommentId, commentId));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public TaskComment updateComment(Integer taskId, Integer commentId, Integer userId, CommentCreateDTO dto) {
+        Task task = ensureTaskReadable(taskId, userId);
+        TaskComment comment = taskCommentMapper.selectOne(
+                new LambdaQueryWrapper<TaskComment>()
+                        .eq(TaskComment::getId, commentId)
+                        .eq(TaskComment::getTaskId, taskId));
+        if (comment == null) throw new RuntimeException("评论不存在");
+        if (!comment.getUserId().equals(userId)) {
+            throw new RuntimeException("只能修改自己的评论");
+        }
+        if (dto == null || StrUtil.isBlank(dto.getContent()) || "<p><br></p>".equals(dto.getContent().trim())) {
+            throw new RuntimeException("评论内容不能为空");
+        }
+        comment.setContent(dto.getContent());
+        comment.setUpdateTime(LocalDateTime.now());
+        taskCommentMapper.updateById(comment);
+        notificationMapper.delete(new LambdaQueryWrapper<Notification>().eq(Notification::getCommentId, commentId));
+        createMentionNotifications(task, comment, userId);
+        fillCommentUsers(List.of(comment));
+        return comment;
+    }
+
+    @Override
+    public Map<String, Object> getNotifications(Integer userId) {
+        List<Notification> notifications = notificationMapper.selectList(
+                new LambdaQueryWrapper<Notification>()
+                        .eq(Notification::getUserId, userId)
+                        .orderByDesc(Notification::getCreateTime)
+                        .last("LIMIT 30"));
+        long unread = notifications.stream().filter(n -> n.getReadStatus() == null || n.getReadStatus() == 0).count();
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("unread", unread);
+        result.put("items", notifications);
+        return result;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void markNotificationsRead(Integer userId, List<Integer> ids) {
+        LambdaQueryWrapper<Notification> wrapper = new LambdaQueryWrapper<Notification>()
+                .eq(Notification::getUserId, userId)
+                .eq(Notification::getReadStatus, 0);
+        if (ids != null && !ids.isEmpty()) {
+            wrapper.in(Notification::getId, ids);
+        }
+        List<Notification> unread = notificationMapper.selectList(wrapper);
+        for (Notification item : unread) {
+            item.setReadStatus(1);
+            notificationMapper.updateById(item);
+        }
+    }
+
+    private Task ensureTaskVisible(Integer taskId, Integer userId) {
+        Task task = taskMapper.selectOne(
+                new LambdaQueryWrapper<Task>()
+                        .eq(Task::getId, taskId)
+                        .eq(Task::getUserId, userId));
+        if (task == null) throw new RuntimeException("任务不存在");
+        return task;
+    }
+
+    private Task ensureTaskReadable(Integer taskId, Integer userId) {
+        Task task = taskMapper.selectById(taskId);
+        if (task == null || (!task.getUserId().equals(userId) && !hasTaskNotification(taskId, userId))) {
+            throw new RuntimeException("任务不存在");
+        }
+        return task;
+    }
+
+    private boolean hasTaskNotification(Integer taskId, Integer userId) {
+        return notificationMapper.selectCount(
+                new LambdaQueryWrapper<Notification>()
+                        .eq(Notification::getTaskId, taskId)
+                        .eq(Notification::getUserId, userId)) > 0;
+    }
+
+    private void fillCommentUsers(List<TaskComment> comments) {
+        if (comments == null || comments.isEmpty()) return;
+        Set<Integer> userIds = comments.stream().map(TaskComment::getUserId).collect(Collectors.toSet());
+        Map<Integer, User> users = userMapper.selectBatchIds(userIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+        for (TaskComment comment : comments) {
+            User user = users.get(comment.getUserId());
+            if (user != null) {
+                comment.setUsername(user.getUsername());
+                comment.setNickname(user.getNickname());
+            }
+        }
+    }
+
+    private void createMentionNotifications(Task task, TaskComment comment, Integer fromUserId) {
+        String plain = stripHtml(comment.getContent());
+        Set<Integer> mentionUserIds = extractMentionUserIds(comment.getContent());
+        if (mentionUserIds.isEmpty() && StrUtil.isBlank(plain)) return;
+        List<User> users = userMapper.selectList(null);
+        Set<String> mentions = extractMentions(plain);
+        for (User target : users) {
+            if (target.getId().equals(fromUserId)) continue;
+            boolean mentionedById = mentionUserIds.contains(target.getId());
+            boolean mentionedByText = mentions.contains(target.getUsername()) || mentions.contains(target.getNickname());
+            if (!mentionedById && !mentionedByText) continue;
+            Notification notification = new Notification();
+            notification.setUserId(target.getId());
+            notification.setTaskId(task.getId());
+            notification.setCommentId(comment.getId());
+            notification.setFromUserId(fromUserId);
+            notification.setType("MENTION");
+            notification.setReadStatus(0);
+            notification.setContent("你在任务《" + task.getTitle() + "》的评论中被@了");
+            notificationMapper.insert(notification);
+        }
+    }
+
+    private Set<Integer> extractMentionUserIds(String html) {
+        Pattern pattern = Pattern.compile("data-user-id=[\"']?(\\d+)[\"']?");
+        Matcher matcher = pattern.matcher(html == null ? "" : html);
+        Set<Integer> userIds = new java.util.HashSet<>();
+        while (matcher.find()) {
+            userIds.add(Integer.parseInt(matcher.group(1)));
+        }
+        return userIds;
+    }
+
+    private Set<String> extractMentions(String text) {
+        Pattern pattern = Pattern.compile("@([\\p{L}\\p{N}_\\-\\u4e00-\\u9fa5]{1,50})");
+        Matcher matcher = pattern.matcher(text);
+        Set<String> mentions = new java.util.HashSet<>();
+        while (matcher.find()) {
+            mentions.add(matcher.group(1));
+        }
+        return mentions;
     }
 
     private LocalDate resolveHeatmapDay(Task task) {
